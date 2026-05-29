@@ -1,6 +1,9 @@
 import { describe, test, expect } from 'vitest';
 import { deriveStealthKeys } from '../../../src/chains/stellar/keys';
-import { generateStealthAddress } from '../../../src/chains/stellar/stealth';
+import {
+  computeAnnouncementViewTag,
+  generateStealthAddress,
+} from '../../../src/chains/stellar/stealth';
 import { checkStealthAddress, scanAnnouncements } from '../../../src/chains/stellar/scan';
 import { SCHEME_ID } from '../../../src/chains/stellar/constants';
 import { bytesToHex } from '../../../src/chains/stellar/utils';
@@ -107,6 +110,34 @@ describe('scanAnnouncements', () => {
       keys.spendingPubKey,
       keys.spendingScalar,
     );
+    expect(matched).toHaveLength(0);
+  });
+
+  test('skips invalid ephemeral keys even when the public view tag matches', () => {
+    const keys = deriveStealthKeys(testSig);
+    const invalidEphemeralPubKey = new Uint8Array(32);
+    const matchingPublicTag = computeAnnouncementViewTag(
+      invalidEphemeralPubKey,
+      keys.viewingPubKey,
+    );
+
+    const announcements: Announcement[] = [
+      {
+        schemeId: SCHEME_ID,
+        stealthAddress: 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF',
+        caller: 'GAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWHF',
+        ephemeralPubKey: bytesToHex(invalidEphemeralPubKey),
+        metadata: matchingPublicTag.toString(16).padStart(2, '0'),
+      },
+    ];
+
+    const matched = scanAnnouncements(
+      announcements,
+      keys.viewingKey,
+      keys.spendingPubKey,
+      keys.spendingScalar,
+    );
+
     expect(matched).toHaveLength(0);
   });
 
